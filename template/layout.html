@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<title>web-app-oidc: {% block title %}{% endblock %}</title>
+	<style>
+		/* Light, bright, and minimal - no external resources */
+		:root{
+			--bg: #f7fbff;
+			--surface: #ffffff;
+			--muted: #6b7280;
+			--text: #0b2545;
+			--accent: #3b82f6;
+			--radius: 12px;
+		}
+		html,body{height:100%;}
+		body{
+			margin:0;
+			font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+			background: linear-gradient(180deg, var(--bg), #ffffff 40%);
+			color:var(--text);
+			-webkit-font-smoothing:antialiased;
+			line-height:1.45;
+		}
+		.page{
+			display:flex;
+			flex-direction:column;
+			min-height:100vh;
+		}
+		.container{
+			width:100%;
+			max-width:980px;
+			margin:0 auto;
+			padding:28px 20px;
+		}
+		.site-header{
+			background:linear-gradient(180deg, rgba(255,255,255,0.6), rgba(255,255,255,0.4));
+			backdrop-filter: blur(6px);
+			border-radius:var(--radius);
+			box-shadow: 0 6px 18px rgba(11,37,69,0.06);
+			padding:18px 20px;
+			margin:20px auto;
+		}
+		.site-title{
+			margin:0;
+			font-size:1.25rem;
+			font-weight:600;
+			color:var(--text);
+		}
+		.content{
+			flex:1 0 auto;
+			background:var(--surface);
+			border-radius:calc(var(--radius) - 2px);
+			padding:22px;
+			margin:12px auto 28px;
+			box-shadow: 0 6px 20px rgba(11,37,69,0.04);
+		}
+		.site-footer{
+			height:20px;
+			margin-bottom:18px;
+			opacity:.6;
+			color:var(--muted);
+			text-align:center;
+			font-size:.9rem;
+		}
+		/* Responsive adjustments */
+		@media (min-width:900px){
+			.container{padding:40px;}
+			.site-title{font-size:1.5rem;}
+		}
+	</style>
+</head>
+<body>
+	<div class="page">
+		<div class="container">
+
+			<main class="content" role="main">
+				{% block body %}{% endblock %}
+			</main>
+
+			<footer class="site-footer" role="contentinfo" aria-hidden="true"></footer>
+		</div>
+	</div>
+</body>
+</html>
