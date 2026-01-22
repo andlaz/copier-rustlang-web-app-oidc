@@ -1,3 +1,5 @@
+_subdirectory: template
+
 # questions
 project_name:
   type: str
