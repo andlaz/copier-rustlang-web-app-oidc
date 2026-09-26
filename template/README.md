@@ -15,6 +15,21 @@ docker build -t web-app-oidc .
 
 ## Running
 
+### Provider client configuration
+
+The app exposes a single, fixed OIDC callback endpoint: `/oidc`.
+
+Register **exactly one** redirect URI at your provider's client config
+(Auth0, Keycloak, …) — the callback derived from `--redirect-url`:
+
+```
+<redirect-url>/oidc
+```
+
+e.g. with `--redirect-url https://web-app-oidc:8443/` (see below), register
+`https://web-app-oidc:8443/oidc`. No per-route registration is needed;
+after login, users are returned to the page they originally requested.
+
 ### Running locally in docker, with a remote oauth provider
 
 > needs: docker, oauth client registration at provider

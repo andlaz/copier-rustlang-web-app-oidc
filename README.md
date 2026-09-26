@@ -2,6 +2,10 @@
 
 Copier template for an axum web app with minijinja templates and oidc auth.
 
+> Uses `axum-oidc` `1.0.0-dev-2` with a single, fixed OIDC callback endpoint
+> (`/oidc`): you register exactly **one** redirect URI at your provider
+> (e.g. `https://your-host/oidc`) instead of one per protected route.
+
 ## Developing the template
 
 Unlike most copier templates, `template/` is a **runnable cargo project**.
