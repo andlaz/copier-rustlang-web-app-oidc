@@ -1,5 +1,36 @@
-this is a basic tokio/tower/axum/minijinja web app template with
-axum-oidc authentication
+# copier-rustlang-web-app-oidc
+
+Copier template for an axum web app with minijinja templates and oidc auth.
+
+## Developing the template
+
+Unlike most copier templates, `template/` is a **runnable cargo project**.
+There is no `{{ project_name }}` placeholder anywhere in it: every file
+already contains the default answer, `web-app-oidc`. That means you can
+type-check and test the template without rendering it first:
+
+```bash
+cd template
+cargo check
+cargo run -- serve --oauth-provider-url https://your-oidc-provider/
+```
+
+IDEs and rust-analyzer also work directly on `template/`.
+
+When the template is rendered (`copier copy`), a post-render task renames
+the package in `Cargo.toml`, `Cargo.lock`, `src/main.rs` (APP_NAME) and
+`Dockerfile` from the default to the answered `project_name`, keeping the
+generated project consistent.
+
+## Using the template
+
+```bash
+copier copy https://github.com/andlaz/copier-rustlang-web-app-oidc my-app
+cd my-app
+```
+
+See `template/README.md` (rendered into the new project) for building and
+running instructions.
 
 ## Roadmap
 

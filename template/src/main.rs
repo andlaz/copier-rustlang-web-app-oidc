@@ -22,7 +22,7 @@ mod handling;
 mod telemetry;
 mod cli;
 
-static APP_NAME: &str = "{{project_name}}";
+static APP_NAME: &str = "web-app-oidc";
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]

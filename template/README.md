@@ -10,7 +10,7 @@ simple axum webapp with oidc
 > needs: docker, gcr.io and docker.io access
 
 ```bash
-docker build -t {{project_name}} . 
+docker build -t web-app-oidc . 
 ```
 
 ## Running
@@ -21,15 +21,15 @@ docker build -t {{project_name}} .
 
 for testing purposes, create a self-signed key pair below for
 your domain ( `$CN` ) and alt domains ( `$ALTNAME` ).
-Make sure either is or contains your test domain ( here `{{project_name}}` ) or `localhost`. 
+Make sure either is or contains your test domain ( here `web-app-oidc` ) or `localhost`. 
 
 Notice the `chgrp` of sensitive files to the non-root group 
 in the distroless base image `65532`. The sudo in here is for updating group
 ownership to a group that `$UID` is not member of
 
 ```bash
-CN="{{project_name}}.k8s-auto-1.us-west-1.aws.andlaz.io"; \
-ALTNAME="DNS:{{project_name}}"; \
+CN="web-app-oidc.k8s-auto-1.us-west-1.aws.andlaz.io"; \
+ALTNAME="DNS:web-app-oidc"; \
 openssl req -x509 -newkey rsa:4096 -sha256 -days 365 -nodes \
       -keyout target/tls.key -out target/tls.crt \
       -subj /C=IN/ST=MH/L=PUN/O=TW/OU=IT/CN="${CN}" \
@@ -67,15 +67,15 @@ provider configuration
 ```bash
 OAUTH_PROVIDER_URL=https://dev-5klruudiueqy8bx3.us.auth0.com/; \
 docker run -ti --rm \
-  --name {{project_name}} \
+  --name web-app-oidc \
   --publish 127.0.0.1:8443:8443 \
   --mount type=bind,source=$PWD/target/.env,target=/.env \
   --mount type=bind,source=$PWD/target/tls.key,target=/tls.key \
   --mount type=bind,source=$PWD/target/tls.crt,target=/tls.crt \
-  {{project_name}} \
+  web-app-oidc \
   serve \
   --listen 0.0.0.0:8443 \
-  --redirect-url https://{{project_name}}:8443/ \
+  --redirect-url https://web-app-oidc:8443/ \
   --tls-key /tls.key \
   --tls-cert /tls.crt \
   --oauth-provider-url $OAUTH_PROVIDER_URL

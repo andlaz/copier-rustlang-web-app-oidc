@@ -5,3 +5,30 @@ project_name:
   type: str
   help: What is your project name?
   default: 'web-app-oidc'
+  validator: |
+    {% if not (project_name | regex_search('^[a-zA-Z][a-zA-Z0-9_-]*$')) %}
+    Project name must start with a letter and contain only letters, digits, '-' or '_' (crates.io-style).
+    {% endif %}
+
+# The template sources are a runnable cargo project using the default name
+# (web-app-oidc) so they can be type-checked and built before rendering.
+# When the answer differs from the default, rename the package in the
+# generated project. Files that still carry the default name:
+#   - Cargo.toml / Cargo.lock  (package name)
+#   - src/main.rs              (APP_NAME constant)
+#   - Dockerfile               (binary path in COPY and ENTRYPOINT)
+#   - README.md                (example commands and test domain)
+# The replacement string is validated above, so this task is safe to run
+# without a shell (cmd as a list, avoiding any shell quoting/injection).
+_tasks:
+  - when: "{{ project_name != 'web-app-oidc' }}"
+    command:
+      - perl
+      - -pi
+      - -e
+      - s/\Qweb-app-oidc\E/{{ project_name }}/g
+      - Cargo.toml
+      - Cargo.lock
+      - src/main.rs
+      - Dockerfile
+      - README.md

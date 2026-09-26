@@ -10,9 +10,9 @@ COPY src ./src
 RUN cargo build --release
 
 FROM gcr.io/distroless/static-debian12:nonroot
-COPY --from=builder /app/target/**/release/{{project_name}} /
+COPY --from=builder /app/target/**/release/web-app-oidc /
 
 EXPOSE 8080/tcp
 EXPOSE 8443/tcp
 
-ENTRYPOINT ["/{{project_name}}"]
+ENTRYPOINT ["/web-app-oidc"]
