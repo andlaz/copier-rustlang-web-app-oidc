@@ -18,17 +18,28 @@ project_name:
 #   - src/main.rs              (APP_NAME constant)
 #   - Dockerfile               (binary path in COPY and ENTRYPOINT)
 #   - README.md                (example commands and test domain)
-# The replacement string is validated above, so this task is safe to run
+# The replacement string is validated above (letters, digits, '-' or '_'),
+# so the plain s//g pattern needs no escaping and the task is safe to run
 # without a shell (cmd as a list, avoiding any shell quoting/injection).
+# sed -i.bak is the portable in-place form across GNU, BSD/macOS and busybox;
+# the second task removes the .bak copies it leaves behind.
 _tasks:
   - when: "{{ project_name != 'web-app-oidc' }}"
     command:
-      - perl
-      - -pi
-      - -e
-      - s/\Qweb-app-oidc\E/{{ project_name }}/g
+      - sed
+      - -i.bak
+      - s/web-app-oidc/{{ project_name }}/g
       - Cargo.toml
       - Cargo.lock
       - src/main.rs
       - Dockerfile
       - README.md
+  - when: "{{ project_name != 'web-app-oidc' }}"
+    command:
+      - rm
+      - -f
+      - Cargo.toml.bak
+      - Cargo.lock.bak
+      - src/main.rs.bak
+      - Dockerfile.bak
+      - README.md.bak
