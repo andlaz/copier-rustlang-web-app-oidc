@@ -1,15 +1,21 @@
 use anyhow::{Context, anyhow};
 use axum::Router;
 use axum::error_handling::HandleErrorLayer;
+use axum::extract::FromRequestParts;
 use axum::extract::FromRef;
 use axum::http::Uri;
+use axum::http::request::Parts;
 use axum::response::IntoResponse;
-use axum::routing::get;
+use axum::routing::{any, get};
 use axum_oidc::error::MiddlewareError;
-use axum_oidc::{EmptyAdditionalClaims, OidcAuthLayer, OidcLoginLayer, OidcRpInitiatedLogout};
+use axum_oidc::{
+    EmptyAdditionalClaims, OidcAuthLayer, OidcClient, OidcLoginLayer, OidcSession, Session,
+    handle_oidc_redirect,
+};
 use axum_template::engine::Engine;
 use clap::{Parser, Subcommand};
 use minijinja::Environment;
+use openidconnect::{ClientId, ClientSecret, IssuerUrl};
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use tokio::signal;
@@ -24,6 +30,10 @@ mod cli;
 
 static APP_NAME: &str = "web-app-oidc";
 
+/// Path of the single OIDC callback endpoint. This is the only URL that has
+/// to be registered as a redirect URI at the OIDC provider's client config.
+static OIDC_CALLBACK_PATH: &str = "/oidc";
+
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Cli {
@@ -37,6 +47,32 @@ type AppEngine = Engine<Environment<'static>>;
 struct AppState {
     engine: AppEngine,
     redirect_url: String,
+}
+
+/// glue between `tower-sessions` and `axum-oidc`'s session abstraction.
+/// the oidc flow state (nonce/csrf/pkce/tokens) is stored under one key in
+/// the app's session store.
+struct SessionWrapper(tower_sessions::Session);
+
+impl<S: Send + Sync> FromRequestParts<S> for SessionWrapper {
+    type Rejection = <tower_sessions::Session as FromRequestParts<S>>::Rejection;
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let session = tower_sessions::Session::from_request_parts(parts, state).await?;
+        Ok(Self(session))
+    }
+}
+
+impl<AC: axum_oidc::AdditionalClaims> Session<AC> for SessionWrapper {
+    type Error = tower_sessions::session::Error;
+
+    async fn get(&self) -> Result<OidcSession<AC, openidconnect::core::CoreGenderClaim>, Self::Error> {
+        Ok(self.0.get("axum-oidc").await?.unwrap_or_default())
+    }
+
+    async fn set(&mut self, value: OidcSession<AC, openidconnect::core::CoreGenderClaim>) -> Result<(), Self::Error> {
+        self.0.insert("axum-oidc", value).await
+    }
 }
 
 #[tokio::main]
@@ -77,26 +113,46 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
             let _signal = tokio::spawn(shutdown_signal(handle.clone()));
 
             // configure oidc layers
+            let callback_uri = Uri::from_maybe_shared(format!(
+                "{}{}",
+                redirect_url.trim_end_matches('/'),
+                OIDC_CALLBACK_PATH
+            ))
+            .context("Failed to parse redirect url")?;
+
             let oidc_login_service = ServiceBuilder::new()
                 .layer(HandleErrorLayer::new(|e: MiddlewareError| async {
                     e.into_response()
                 }))
-                .layer(OidcLoginLayer::<EmptyAdditionalClaims>::new());
+                .layer(OidcLoginLayer::<EmptyAdditionalClaims, SessionWrapper>::new());
+
+            let oidc_client = OidcClient::<EmptyAdditionalClaims>::builder()
+                .with_redirect_url(callback_uri.clone())
+                .with_client_id(ClientId::new(oauth_provider_client_id))
+                .with_default_http_client();
+
+            // client secret is optional for public clients (auth method `none`)
+            let oidc_client = match oauth_provider_client_secret {
+                Some(secret) => oidc_client.with_client_secret(ClientSecret::new(secret)),
+                None => oidc_client,
+            };
+
+            let oidc_client = match oidc_client
+                .discover(IssuerUrl::new(oauth_provider_url).context("Failed to parse oauth provider url")?)
+                .await
+            {
+                Ok(b) => b,
+                Err(e) => return Err(anyhow!("Failed to create OIDC client via provider discovery endpoint `.well-known/openid-configuration`: {e}")),
+            }
+            .build();
 
             let oidc_auth_service = ServiceBuilder::new()
                 .layer(HandleErrorLayer::new(|e: MiddlewareError| async {
                     e.into_response()
                 }))
-                .layer(
-                    OidcAuthLayer::<EmptyAdditionalClaims>::discover_client(
-                        Uri::from_maybe_shared(redirect_url.clone()).context("Failed to parse redirect url")?,
-                        oauth_provider_url,
-                        oauth_provider_client_id,
-                        oauth_provider_client_secret,
-                        vec![],
-                    )
-                        .await.context("Failed to create OIDC client via provider discovery endpoint `.well-known/openid-configuration`")?,
-                );
+                .layer(OidcAuthLayer::<EmptyAdditionalClaims, SessionWrapper>::new(
+                    oidc_client,
+                ));
 
             // set up jinja
             let mut jinja = Environment::new();
@@ -104,6 +160,10 @@ async fn main() -> anyhow::Result<(), anyhow::Error> {
             minijinja_embed::load_templates!(&mut jinja);
 
             let app = Router::new()
+                .route(
+                    OIDC_CALLBACK_PATH,
+                    any(handle_oidc_redirect::<EmptyAdditionalClaims, SessionWrapper>),
+                )
                 .route("/logout", get(handling::logout))
                 .route("/task/sum", get(handling::task::sum))
                 .layer(oidc_login_service)
